@@ -7,7 +7,8 @@ This project uses the Beijing Multi-Site Air Quality Dataset (UCI) to analyze wh
 
 ## Files in this Repository
 - `CS571Project.Rmd` - R Markdown source code with full analysis pipeline.
-- `CS571Project.html` - Knitted HTML report showing inputs, outputs, and comments.
+- `CS571Project.html` - Knitted HTML report
+- `CS571Project_HTML_Version.pdf` - Viewable knitted HTML report showing inputs, outputs, and comments.
 - `PRSA_Data_Aotizhongxin_20130301-20170228.csv` - The dataset (Aotizhongxin station).
 
 ## Methods Used
