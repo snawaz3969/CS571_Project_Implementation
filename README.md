@@ -6,11 +6,11 @@
 This project uses the Beijing Multi-Site Air Quality Dataset (UCI) to analyze which weather factore most influences ground-level ozone concentrations, noted as O3.
 
 ## Files in this Repository
-- `CS571Project.Rmd` - R Markdown source code with full analysis pipeline.
+- `CS571Project.Rmd` - R Markdown source code with full analysis pipeline
 - `CS571Project.html` - Knitted HTML report
-- `CS571Project_HTML_Version.pdf` - Viewable knitted HTML report showing inputs, outputs, and comments.
+- `CS571Project_HTML_Version.pdf` - Viewable knitted HTML report showing inputs, outputs, and comments
 - `CS571RunningMarkdown` - Links to view the running R markdown file on browser
-- `PRSA_Data_Aotizhongxin_20130301-20170228.csv` - The dataset (Aotizhongxin station).
+- `PRSA_Data_Aotizhongxin_20130301-20170228.csv` - The dataset (Aotizhongxin station)
 
 ## Methods Used
 In this project, I first do exploratory data analysis of the data set with metrics and summaries. Then, I use regression methods including linear, ridge, and lasso regression. I also use the Best Subset Selection technique. Cross-validation is used to see how well the model worked.
