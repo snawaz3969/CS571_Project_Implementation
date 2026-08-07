@@ -1,12 +1,13 @@
 ---
-title: "What Drives Ground-Level Ozone in Beijing?"
+title: "What Drives Ground-Level Ozone in Aotizhongxin, Beijing?"
 author: "Sidrah Nawaz"
-output: html_document
 date: "2026-07-13"
+output:
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, dpi = 150, fig.width = 6, fig.height = 4)
 
 
 for (packages in c("tidyverse", "lubridate", "skimr", "corrplot", "glmnet", "leaps", "boot")) {
@@ -16,7 +17,6 @@ library(tidyverse)
 library(lubridate)
 library(skimr)
 library(corrplot)
-library(leaps)      # for Best Subset Selection
 library(glmnet)     # for Ridge and Lasso
 library(boot)       # for cv.glm
 
@@ -41,11 +41,17 @@ dim(air)
 O3 has 1,719 missing values. Since O3 is the target variable, let's remove them rather than impute
 
 ```{r step2}
-# Summary statistics
-summary(air$O3)
+# Check total missing values
+sum(is.na(air %>%
+  select(O3, TEMP, RAIN, WSPM, PRES, DEWP)))
 
-# Check missing values
-sum(is.na(air$O3))
+# Check statistics before cleaned data
+summary(air %>%
+  select(O3, TEMP, RAIN, WSPM, PRES, DEWP))
+
+# Check for duplicates
+sum(duplicated(air))
+
 ```
 
        
@@ -54,24 +60,60 @@ sum(is.na(air$O3))
 
 
 ```{r step3}
-# Select only the weather variables and O3
-weather_data <- air %>%
-  select(O3, TEMP, PRES, RAIN, WSPM, DEWP)  # These are the numerical weather factors, technically wd is a potential factor as well but I didn't include that!
 
+# Take out O3 rows
+air_clean <- air %>% filter(!is.na(O3))
 
-# Pairwise scatterplots
-pairs(weather_data, col = "steelblue", main = "Weather vs Ozone")
+# Mean imputation of N/A feature variable rows
+air_clean <- air_clean %>%
+  mutate(
+    TEMP = ifelse(is.na(TEMP), mean(TEMP, na.rm = TRUE), TEMP),
+    PRES = ifelse(is.na(PRES), mean(PRES, na.rm = TRUE), PRES),
+    RAIN = ifelse(is.na(RAIN), mean(RAIN, na.rm = TRUE), RAIN),
+    WSPM = ifelse(is.na(WSPM), mean(WSPM, na.rm = TRUE), WSPM),
+    DEWP = ifelse(is.na(DEWP), mean(DEWP, na.rm = TRUE), DEWP)
+  )
+
+# Summary statistics after cleaning
+summary(air_clean %>%
+  select(O3, TEMP, RAIN, WSPM, PRES, DEWP))
 ```
-From the pairwise scatterplot shown above, I can visually see there is a positive correlation between O3 and TEMP, and O3 and DEWP. O3 and RAIN is kind of weird..., sort of like a negative correlation. O3 and PRES has a clear negative correlation. O3 and WSPM has somewhat of a negative correlation.
-
 
 
 
 
 ```{r step4}
-cor_matrix <- cor(weather_data, use = "complete.obs")
+
+# Select only the weather variables and O3 from the cleaned dataset
+model_data <- air_clean %>%
+  select(O3, TEMP, PRES, RAIN, WSPM, DEWP)  # These are the numerical weather factors, technically wd is a potential factor as well but I didn't include that!
+
+
+# Pairwise scatterplots, storing it as an image to decrease file size
+png(
+  "pairs_plot.png",
+  width = 6,
+  height = 4,
+  units = "in",
+  res = 1800
+)
+
+pairs(model_data, col = "steelblue", main = "Weather vs Ozone")
+invisible(dev.off())
+
+
+# Correlation matrix
+cor_matrix <- cor(model_data, use = "complete.obs")
 corrplot(cor_matrix, method = "number", type = "upper", tl.cex = 0.8)
 ```
+
+```{r pairs_image, echo=FALSE, out.width="99%", fig.align='center'}
+#output of pairs plot for optimal sizing
+knitr::include_graphics("pairs_plot.png")
+```
+
+From the pairwise scatterplot shown above, I can visually see there is a positive correlation between O3 and TEMP, and O3 and DEWP. O3 and RAIN is kind of weird..., sort of like a negative correlation. O3 and PRES has a clear negative correlation. O3 and WSPM has somewhat of a negative correlation.
+
 Okay odd... Now the actual correlations say O3 and TEMP, WSPM, and DEWP have a positive correlation, O3 and RAIN is almost like 0 lol which is pretty accurate, and O3 and PRES has a negative correlation.
 
 Very interesting! I have apparently encountered the "Simpson's paradox," as I thought WSPM was negative, but it's actually a positive correlation!
@@ -82,24 +124,8 @@ Very interesting! I have apparently encountered the "Simpson's paradox," as I th
 
 Since this is a time series, we need to split based of: Train on the PAST, test on the FUTURE. It's kind of like cheating if we train on the future and test in the past since the factors would already have been determined for what impacts the Ozone
 ```{r step5}
-# 1. Remove rows where O3 is missing
-air_clean <- air %>% filter(!is.na(O3))
 
-# 2. Impute missing weather variables with median
-air_clean <- air_clean %>%
-  mutate(
-    TEMP = ifelse(is.na(TEMP), median(TEMP, na.rm = TRUE), TEMP),
-    RAIN = ifelse(is.na(RAIN), median(RAIN, na.rm = TRUE), RAIN),
-    WSPM = ifelse(is.na(WSPM), median(WSPM, na.rm = TRUE), WSPM),
-    PRES = ifelse(is.na(PRES), median(PRES, na.rm = TRUE), PRES),
-    DEWP = ifelse(is.na(DEWP), median(DEWP, na.rm = TRUE), DEWP)
-  )
-
-# 3. Select only the weather features
-model_data <- air_clean %>%
-  select(O3, TEMP, RAIN, WSPM, PRES, DEWP)
-
-# 4. Train/Test Split by Year (like the Smarket split thingy)
+# Train/Test Split by Year (like the Smarket split thingy)
 train_idx <- air_clean$year < 2016
 test_idx <- !train_idx
 
@@ -119,8 +145,6 @@ Test size is significantly bigger than train... is that okay? No! split at a gre
 
 
 
-
-
 ```{r step6}
 lm_fit <- lm(O3 ~ ., data = model_data[train_idx, ])
 summary(lm_fit)
@@ -131,17 +155,29 @@ summary(lm_fit)
 
 
 ```{r step7}
-library(leaps)
-bestsubs_fit <- regsubsets(O3 ~ ., data = model_data[train_idx, ], nvmax = 5)
-summary(bestsubs_fit)
+# Diagnostic plots - like Ch 3 lab
+par(mfrow = c(2, 2))
+plot(lm_fit)
 
-# Plot the coefficients to see which variables enter the model
-plot(bestsubs_fit, scale = "adjr2")
-plot(bestsubs_fit, scale = "r2")
-plot(bestsubs_fit, scale = "Cp")
-plot(bestsubs_fit, scale = "bic")
+# Studentized residuals - outliers
+rstudent_values <- rstudent(lm_fit)
+outliers <- which(abs(rstudent_values) > 3)
+cat("\nOutliers:", length(outliers), "\n")
+
+# Leverage statistics - high leverage points
+leverage_values <- hatvalues(lm_fit)
+p <- 5
+n <- nrow(air_clean)
+leverage_threshold <- 2 * (p + 1) / n
+high_leverage <- which(leverage_values > leverage_threshold)
+cat("High-leverage points:", length(high_leverage), "\n")
+
+# Cook's distance - influential observations
+cooks_values <- cooks.distance(lm_fit)
+cooks_threshold <- 4 / n
+influential <- which(cooks_values > cooks_threshold)
+cat("Influential points:", length(influential), "\n")
 ```
-We see here that TEMP, WSPM, and DEWP are the top 3 variables for literally all: adjr2, BIC, Cp, r2! This is for the Best Subset Selection method. Nice and accurate basically.
 
 
 
@@ -200,6 +236,15 @@ plot(lasso_full, xvar = "lambda", label = TRUE, main = "Lasso Coefficient Path")
 
 
 ```{r step11}
+
+# Predict on test set using Linear Regression
+linear_pred <- predict(lm_fit, newdata = x_test)
+linear_test_mse <- mean((linear_pred - y_test)^2)
+
+# Predict on test set using Ridge
+ridge_pred <- predict(ridge_cv, newx = x_test_mat, s = best_ridge_lambda)
+ridge_test_mse <- mean((ridge_pred - y_test)^2)
+
 # Predict on test set using Lasso
 lasso_pred <- predict(lasso_cv, newx = x_test_mat, s = best_lasso_lambda)
 lasso_test_mse <- mean((lasso_pred - y_test)^2)
@@ -209,15 +254,24 @@ null_mse <- mean((mean(y_train) - y_test)^2)
 
 # Compile results
 results_df <- data.frame(
-  Model = c("Null (Mean)", "Lasso"),
-  Test_MSE = c(null_mse, lasso_test_mse)
+  Model = c("Null (Mean)",
+            "Linear Regression",
+            "Ridge Regression",
+            "Lasso Regression"),
+  Test_MSE = c(
+    null_mse,
+    linear_test_mse,
+    ridge_test_mse,
+    lasso_test_mse
+  )
 )
 knitr::kable(results_df, caption = "Test Set Performance", digits = 2)
 
 # Final Coefficient Table
 coef_table <- data.frame(
-  Variable = rownames(lasso_coef)[-1],
-  Coefficient = as.vector(lasso_coef[-1])
+  Variable = rownames(ridge_coef)[-1],
+  Ridge = as.vector(ridge_coef[-1]),
+  Lasso = as.vector(lasso_coef[-1])
 )
 knitr::kable(coef_table, caption = "Lasso Coefficients at Best Lambda", digits = 3)
 ```
