@@ -20,7 +20,7 @@ The Lasso model (main model focused on) identified Temperature (TEMP) and Wind S
 ## How to Run
 1. Open `CS571Project.Rmd` in RStudio.
 2. Run All
-3. Click "Knit" to reproduce the HTML report.
+3. Click "Knit" to reproduce the PDF report.
 
 ## References
 - [1] G. James, D. Witten, T. Hastie, and R. Tibshirani, “An Introduction to Statistical Learning with Applications in R Second Edition,” 2021. Accessed: July 26, 2026. Chapters #2 - #9: R Lab Codes
